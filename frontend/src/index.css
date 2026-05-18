@@ -1,0 +1,206 @@
+@import "tailwindcss";
+
+/* ── Tailwind v4 Design Tokens ── */
+@theme {
+  --color-void: #050505;
+  --color-bone: #F5F0EB;
+  --color-lime: #CDFF00;
+  --color-crimson: #FF003C;
+  --color-sage: #D4E4D0;
+  --color-cream: #FFF8F0;
+  --color-steel: #1A1A1A;
+  --color-ash: #888888;
+  --color-cyan-glitch: #00FFFF;
+
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --font-body: 'Space Grotesk', sans-serif;
+
+  --animate-contour-drift: contour-drift 50s ease-in-out infinite;
+  --animate-contour-drift-slow: contour-drift-slow 70s ease-in-out infinite;
+  --animate-glitch: glitch 0.4s steps(4) infinite;
+  --animate-glitch-text: glitch-text 0.3s steps(3) infinite;
+  --animate-scan-line: scan-line 2s ease-in-out infinite;
+}
+
+/* ── Keyframes ── */
+@keyframes contour-drift {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+
+  33% {
+    transform: translate(25px, -15px) rotate(1.5deg) scale(1.02);
+  }
+
+  66% {
+    transform: translate(-15px, 10px) rotate(-1deg) scale(0.98);
+  }
+
+  100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes contour-drift-slow {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+
+  50% {
+    transform: translate(-20px, 25px) rotate(-2deg);
+  }
+
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+@keyframes glitch {
+  0% {
+    transform: translate(0);
+  }
+
+  25% {
+    transform: translate(-4px, 2px);
+  }
+
+  50% {
+    transform: translate(4px, -2px);
+  }
+
+  75% {
+    transform: translate(-2px, -1px);
+  }
+
+  100% {
+    transform: translate(0);
+  }
+}
+
+@keyframes glitch-text {
+  0% {
+    text-shadow: 3px 0 var(--color-crimson), -3px 0 var(--color-cyan-glitch);
+  }
+
+  33% {
+    text-shadow: -3px 0 var(--color-crimson), 3px 0 var(--color-cyan-glitch);
+  }
+
+  66% {
+    text-shadow: 2px -2px var(--color-crimson), -2px 2px var(--color-cyan-glitch);
+  }
+
+  100% {
+    text-shadow: 3px 0 var(--color-crimson), -3px 0 var(--color-cyan-glitch);
+  }
+}
+
+@keyframes scan-line {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(-50%);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(50%);
+  }
+}
+
+@keyframes flash-red {
+
+  0%,
+  100% {
+    border-color: var(--color-crimson);
+  }
+
+  50% {
+    border-color: transparent;
+  }
+}
+
+/* ── Global Base ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--color-void);
+  color: var(--color-bone);
+  overflow-x: hidden;
+}
+
+/* ── Brutalist Utilities ── */
+.text-outline {
+  -webkit-text-stroke: 2px currentColor;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-outline-thin {
+  -webkit-text-stroke: 1px currentColor;
+  -webkit-text-fill-color: transparent;
+}
+
+.glitch-frame {
+  animation: flash-red 0.5s steps(2) infinite;
+}
+
+/* ── html5-qrcode Overrides ── */
+#dual-scanner-camera {
+  border: none !important;
+  width: 100% !important;
+}
+
+#dual-scanner-camera video {
+  object-fit: cover !important;
+}
+
+#dual-scanner-camera img,
+#dual-scanner-camera__header_message,
+#dual-scanner-camera__dashboard_section,
+#dual-scanner-camera__dashboard_section_swaplink,
+#dual-scanner-camera span,
+#dual-scanner-camera br {
+  display: none !important;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-lime);
+}
+
+/* ── Gallery horizontal scroll ── */
+.gallery-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-lime) transparent;
+}
+
+.gallery-scroll::-webkit-scrollbar {
+  height: 3px;
+}
+
+.gallery-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-lime);
+}
