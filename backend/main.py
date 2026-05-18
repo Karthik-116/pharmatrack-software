@@ -14,16 +14,23 @@ import google.generativeai as genai
 import models
 import schemas
 from database import engine, get_db
-from passlib.context import CryptContext
+import bcrypt
 from jose import jwt, JWTError
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def get_password_hash(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_bytes = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed_bytes.decode('utf-8')
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        return bcrypt.checkpw(
+            plain_password.encode('utf-8'), 
+            hashed_password.encode('utf-8')
+        )
+    except Exception:
+        return False
 
 SECRET_KEY = os.getenv("JWT_SECRET", "super-secret-fallback")
 ALGORITHM = "HS256"
@@ -41,9 +48,16 @@ except Exception as e:
     print(f"Warning: Failed to load SentenceTransformer globally: {e}")
     embedding_model = None
 
+from models import User
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="PharmaTrack API")
+
+@app.on_event("startup")
+def startup_event():
+    models.Base.metadata.create_all(bind=engine)
+
+
 
 app.add_middleware(
     CORSMiddleware,

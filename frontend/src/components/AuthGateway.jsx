@@ -40,7 +40,7 @@ export default function AuthGateway({ onEnterSystem }) {
           onEnterSystem(email);
         }, 800);
       } catch (err) {
-        setErrorMessage("ERROR: Incorrect credentials. Handshake denied.");
+        setErrorMessage(err.response?.data?.detail || "System Error: Connection or Database initialization failed.");
         setIsLoading(false);
       }
     } else {
@@ -55,7 +55,7 @@ export default function AuthGateway({ onEnterSystem }) {
         setSuccessMessage("Credentials minted. Proceed to login.");
         setIsLoading(false);
       } catch (err) {
-        setErrorMessage("ERROR: Operator email already registered.");
+        setErrorMessage(err.response?.data?.detail || "System Error: Connection or Database initialization failed.");
         setIsLoading(false);
       }
     }
