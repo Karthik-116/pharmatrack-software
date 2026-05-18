@@ -14,12 +14,10 @@ if "sqlite" in SQLALCHEMY_DATABASE_URL:
         SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
     )
 else:
+    from sqlalchemy.pool import NullPool
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
-        pool_size=10,
-        max_overflow=20,
-        pool_recycle=1800,
-        pool_pre_ping=True
+        poolclass=NullPool
     )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
