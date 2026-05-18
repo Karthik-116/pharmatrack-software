@@ -64,6 +64,12 @@ app = FastAPI(title="PharmaTrack API")
 @app.on_event("startup")
 def startup_event():
     models.Base.metadata.create_all(bind=engine)
+    try:
+        from seed_medicines import seed_db
+        print("Ensuring MasterMedicine database tables are fully seeded...")
+        seed_db()
+    except Exception as e:
+        print(f"Warning: Automatic database seeding failed on startup: {e}")
 
 
 
@@ -288,11 +294,9 @@ def chat_endpoint(request: schemas.ChatRequest, db: Session = Depends(get_db)):
     }
     current_med = med_metadata.get(pid, {"brand": "Verified Medicine", "generic": "Unknown Generic"})
 
-    query_vector = get_embedding(request.query)
-
     top_chunks = []
     
-    # Mode A: Try SQLAlchemy with pgvector against Supabase
+    # Mode A: Try SQLAlchemy against Supabase to fetch all verified clinical knowledge blocks
     db_url = os.getenv("DATABASE_URL")
     if db_url:
         if "Karthiknihal@4365@" in db_url:
@@ -304,21 +308,19 @@ def chat_endpoint(request: schemas.ChatRequest, db: Session = Depends(get_db)):
             SupaSession = sessionmaker(bind=supa_engine)
             supa_db = SupaSession()
             try:
-                # Execute vector similarity search with strict WHERE product_id = :pid isolation
+                # Fetch all knowledge blocks for this product ID without vector dimension mismatch
                 sql = text("""
                     SELECT topic, content 
                     FROM rag_chunks 
-                    WHERE product_id = :pid 
-                    ORDER BY embedding <-> :qvec 
-                    LIMIT 3
+                    WHERE product_id = :pid
                 """)
-                rows = supa_db.execute(sql, {"pid": pid, "qvec": str(query_vector)}).fetchall()
+                rows = supa_db.execute(sql, {"pid": pid}).fetchall()
                 for row in rows:
                     top_chunks.append({"topic": row[0], "content": row[1]})
             finally:
                 supa_db.close()
         except Exception as e:
-            print(f"SQLAlchemy pgvector search failed ({e}), falling back to REST API...")
+            print(f"SQLAlchemy chunk retrieval failed ({e}), falling back to REST API...")
 
     # Mode B: Fallback to Supabase REST API if SQLAlchemy failed
     if not top_chunks:
@@ -333,23 +335,8 @@ def chat_endpoint(request: schemas.ChatRequest, db: Session = Depends(get_db)):
                 res = requests.get(f"{supabase_url}rag_chunks?product_id=eq.{pid}", headers=headers)
                 if res.status_code == 200:
                     chunks = res.json()
-                    if chunks:
-                        # Calculate cosine similarity locally in Python
-                        q_arr = np.array(query_vector)
-                        q_norm = np.linalg.norm(q_arr)
-                        scored_chunks = []
-                        for c in chunks:
-                            c_arr = np.array(c["embedding"])
-                            c_norm = np.linalg.norm(c_arr)
-                            if q_norm > 0 and c_norm > 0:
-                                sim = np.dot(q_arr, c_arr) / (q_norm * c_norm)
-                            else:
-                                sim = 0
-                            scored_chunks.append((sim, c))
-                        
-                        scored_chunks.sort(key=lambda x: x[0], reverse=True)
-                        for sim, c in scored_chunks[:3]:
-                            top_chunks.append({"topic": c["topic"], "content": c["content"]})
+                    for c in chunks:
+                        top_chunks.append({"topic": c["topic"], "content": c["content"]})
             except Exception as e:
                 print(f"Supabase REST API search failed ({e}), falling back to local JSONL...")
 
@@ -359,7 +346,6 @@ def chat_endpoint(request: schemas.ChatRequest, db: Session = Depends(get_db)):
         jsonl_path = os.path.join(os.path.dirname(__file__), "medicines_data.jsonl")
         if os.path.exists(jsonl_path):
             try:
-                local_chunks = []
                 with open(jsonl_path, "r", encoding="utf-8") as f:
                     for line in f:
                         line = line.strip()
@@ -379,33 +365,20 @@ def chat_endpoint(request: schemas.ChatRequest, db: Session = Depends(get_db)):
                             for t, c in topics_map.items():
                                 clean_c = c.strip()
                                 if clean_c:
-                                    c_vec = get_embedding(clean_c)
-                                    local_chunks.append({"topic": t, "content": clean_c, "embedding": c_vec})
+                                    top_chunks.append({"topic": t, "content": clean_c})
                             break
-                
-                if local_chunks:
-                    q_arr = np.array(query_vector)
-                    q_norm = np.linalg.norm(q_arr)
-                    scored_chunks = []
-                    for c in local_chunks:
-                        c_arr = np.array(c["embedding"])
-                        c_norm = np.linalg.norm(c_arr)
-                        if q_norm > 0 and c_norm > 0:
-                            sim = np.dot(q_arr, c_arr) / (q_norm * c_norm)
-                        else:
-                            sim = 0
-                        scored_chunks.append((sim, c))
-                    
-                    scored_chunks.sort(key=lambda x: x[0], reverse=True)
-                    for sim, c in scored_chunks[:3]:
-                        top_chunks.append({"topic": c["topic"], "content": c["content"]})
             except Exception as e:
                 print(f"Local JSONL fallback failed: {e}")
 
     if not top_chunks:
         return schemas.ChatResponse(answer="I apologize, but I do not have sufficient verified clinical data blocks for this medicine to answer your question confidently.")
 
-    # Pass retrieved chunks to LLM
+    # Explicitly add the Verified Identity block so the LLM knows the exact brand and generic names!
+    top_chunks.insert(0, {
+        "topic": "Verified Identity & Composition", 
+        "content": f"Brand Name: {current_med['brand']}. Generic Composition: {current_med['generic']}."
+    })
+
     # Pass retrieved chunks to LLM
     context_text = "\n\n".join([f"[{c['topic']}]: {c['content']}" for c in top_chunks])
     
@@ -413,7 +386,7 @@ def chat_endpoint(request: schemas.ChatRequest, db: Session = Depends(get_db)):
     system_prompt = (
         f"You are a strict, expert pharmacist AI assistant. The patient has successfully scanned a verified strip of {current_med['brand']} (Generic: {current_med['generic']}).\n\n"
         "CRITICAL RULES YOU MUST FOLLOW:\n"
-        f"1. IMPLICIT CONTEXT: If the patient asks a general question (e.g., 'What is the dosage?'), ALWAYS assume they are asking about {current_med['brand']}.\n"
+        f"1. IMPLICIT CONTEXT: If the patient asks a general question (e.g., 'What is the dosage?' or 'What is the medicine name?'), ALWAYS answer using the verified data for {current_med['brand']}.\n"
         f"2. THE ACKNOWLEDGEMENT: ALWAYS begin your answer by explicitly naming the medicine. Start with: 'For the {current_med['brand']} tablet you scanned...'\n"
         "3. THE RAG BOUNDARY: You MUST construct your answer using ONLY the 'Context Blocks' provided below. Do not use your pre-trained internet knowledge.\n"
         "4. THE REJECTION PROTOCOL (IMPORTANT): If the patient asks about a completely different medicine (like Vitamin C), or if the Context Blocks do not contain the answer to their question, you MUST decline. Say exactly: 'I apologize, but my verified data for this scanned product does not contain information about that.'\n"

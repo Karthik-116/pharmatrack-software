@@ -19,7 +19,7 @@ export default function LogisticsZone() {
     setState('loading');
     setMessage('');
     try {
-      const res = await api.post('/scan/transit', {
+      const res = await api.post('/api/scan/transit', {
         item_uuid: uuid,
         scanned_by: 'Hub_Alpha_Logistics',
         location: 'Transit_Warehouse_B',

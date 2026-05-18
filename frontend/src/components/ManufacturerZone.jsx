@@ -66,7 +66,7 @@ export default function ManufacturerZone() {
     setError('');
     setBatchData(null);
     try {
-      const res = await api.post('/generate_batch', {
+      const res = await api.post('/api/generate_batch', {
         product_id: selectedMed.product_id,
         strip_count: parseInt(stripCount),
       });
@@ -241,7 +241,7 @@ export default function ManufacturerZone() {
                     [00] Parent Box Container UUID
                   </span>
                   <button
-                    onClick={() => downloadQR('qr-box-parent', `Box_${batchData.box_uuid.slice(-6)}`)}
+                    onClick={() => downloadQR('qr-box-parent', 'PharmaTrack_Box')}
                     className="flex items-center gap-2 px-3 py-1.5 bg-lime text-void text-[10px] font-mono uppercase tracking-widest font-bold hover:bg-lime/80 transition-colors cursor-pointer"
                   >
                     <Download size={12} />
@@ -287,7 +287,7 @@ export default function ManufacturerZone() {
                           Strip 0{idx + 1}
                         </span>
                         <button
-                          onClick={() => downloadQR(`qr-strip-${idx}`, `Strip_${idx+1}_${uuid.slice(-6)}`)}
+                          onClick={() => downloadQR(`qr-strip-${idx}`, `PharmaTrack_Strip_${idx+1}`)}
                           className="flex items-center gap-1.5 px-3 py-1 border border-bone/20 text-bone hover:border-lime hover:text-lime text-[10px] font-mono uppercase tracking-widest transition-colors cursor-pointer"
                         >
                           <Download size={10} />

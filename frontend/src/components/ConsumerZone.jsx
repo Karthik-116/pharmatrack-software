@@ -26,7 +26,7 @@ export default function ConsumerZone() {
     setChatResult(null);
     setChatError('');
     try {
-      const res = await api.post('/scan/verify', {
+      const res = await api.post('/api/scan/verify', {
         item_uuid: uuid,
         scanned_by: 'Patient_Device',
         location: 'Consumer_Home',
@@ -46,7 +46,7 @@ export default function ConsumerZone() {
     setChatResult(null);
     setChatError('');
     try {
-      const res = await api.post('/chat', {
+      const res = await api.post('/api/chat', {
         product_id: result?.product_id || 'PARA-PLX',
         query: q
       });
