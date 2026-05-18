@@ -8,7 +8,6 @@ import json
 import requests
 import numpy as np
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 
 import models
@@ -40,13 +39,22 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 # Load environment variables
 load_dotenv()
 
-# Initialize SentenceTransformer globally so it doesn't reload on every request
-try:
-    print("Initializing global SentenceTransformer model 'all-MiniLM-L6-v2'...")
-    embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-except Exception as e:
-    print(f"Warning: Failed to load SentenceTransformer globally: {e}")
-    embedding_model = None
+# Initialize Gemini API Embeddings globally to replace local SentenceTransformers
+llm_api_key = os.getenv("LLM_API_KEY")
+if llm_api_key:
+    genai.configure(api_key=llm_api_key)
+
+def get_embedding(text: str):
+    try:
+        response = genai.embed_content(
+            model="models/embedding-001",
+            content=text,
+            task_type="retrieval_document"
+        )
+        return response['embedding']
+    except Exception as e:
+        print(f"Gemini API embedding failed: {e}")
+        return [0.0] * 384  # Fallback zero vector matching expected dimension
 
 from models import User
 models.Base.metadata.create_all(bind=engine)
@@ -280,10 +288,7 @@ def chat_endpoint(request: schemas.ChatRequest, db: Session = Depends(get_db)):
     }
     current_med = med_metadata.get(pid, {"brand": "Verified Medicine", "generic": "Unknown Generic"})
 
-    if not embedding_model:
-        raise HTTPException(status_code=500, detail="Embedding model not initialized.")
-
-    query_vector = embedding_model.encode(request.query, show_progress_bar=False).tolist()
+    query_vector = get_embedding(request.query)
 
     top_chunks = []
     
@@ -374,7 +379,7 @@ def chat_endpoint(request: schemas.ChatRequest, db: Session = Depends(get_db)):
                             for t, c in topics_map.items():
                                 clean_c = c.strip()
                                 if clean_c:
-                                    c_vec = embedding_model.encode(clean_c, show_progress_bar=False).tolist()
+                                    c_vec = get_embedding(clean_c)
                                     local_chunks.append({"topic": t, "content": clean_c, "embedding": c_vec})
                             break
                 

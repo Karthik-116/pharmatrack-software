@@ -8,7 +8,6 @@ python-multipart
 bcrypt
 python-jose
 python-dotenv
-sentence-transformers
 google-generativeai
 requests
 numpy
